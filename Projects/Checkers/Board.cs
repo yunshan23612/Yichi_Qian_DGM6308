@@ -119,46 +119,48 @@ public class Board
 
 		void ValidateDiagonalMove(int dx, int dy)
 		{
-			if (!piece.Promoted && piece.Color is Black && dy is -1) return;
-			if (!piece.Promoted && piece.Color is White && dy is 1) return;
-			(int X, int Y) target = (piece.X + dx, piece.Y + dy);
-			if (!IsValidPosition(target.X, target.Y)) return;
-			PieceColor? targetColor = this[target.X, target.Y]?.Color;
-			if (targetColor is null)
-			{
-				if (!IsValidPosition(target.X, target.Y)) return;
-				Move newMove = new(piece, target);
-				moves.Add(newMove);
-			}
-			else if (targetColor != piece.Color)
-			{
-				(int X, int Y) jump = (piece.X + 2 * dx, piece.Y + 2 * dy);
-				if (!IsValidPosition(jump.X, jump.Y)) return;
-				PieceColor? jumpColor = this[jump.X, jump.Y]?.Color;
-				if (jumpColor is not null) return;
-				Move attack = new(piece, jump, this[target.X, target.Y]);
-				moves.Add(attack);
-			}
-		}
+    		if (!piece.Promoted && piece.Color is Black && dy is -1) return;
+    		if (!piece.Promoted && piece.Color is White && dy is 1) return;
+    		(int X, int Y) target = (piece.X + dx, piece.Y + dy);
+    		if (!IsValidPosition(target.X, target.Y)) return;
+    		PieceColor? targetColor = this[target.X, target.Y]?.Color;
+    		if (targetColor is null)
+    		{
+        		if (!IsValidPosition(target.X, target.Y)) return;
+        		Move newMove = new(piece, (piece.X, piece.Y), target);  // Adding the From parameter
+        		moves.Add(newMove);
+    		}
+    		else if (targetColor != piece.Color)
+    		{
+        		(int X, int Y) jump = (piece.X + 2 * dx, piece.Y + 2 * dy);
+        		if (!IsValidPosition(jump.X, jump.Y)) return;
+        		PieceColor? jumpColor = this[jump.X, jump.Y]?.Color;
+        		if (jumpColor is not null) return;
+        		Move attack = new(piece, (piece.X, piece.Y), jump, this[target.X, target.Y]);  // Adding the From parameter
+        		moves.Add(attack);
+    		}
+		}		
+
 	}
 
 	/// <summary>Returns a <see cref="Move"/> if <paramref name="from"/>-&gt;<paramref name="to"/> is valid or null if not.</summary>
 	public Move? ValidateMove(PieceColor color, (int X, int Y) from, (int X, int Y) to)
-	{
-		Piece? piece = this[from.X, from.Y];
-		if (piece is null)
-		{
-			return null;
-		}
-		foreach (Move move in GetPossibleMoves(color))
-		{
-			if ((move.PieceToMove.X, move.PieceToMove.Y) == from && move.To == to)
-			{
-				return move;
-			}
-		}
-		return null;
-	}
+{
+    Piece? piece = this[from.X, from.Y];
+    if (piece is null)
+    {
+        return null;
+    }
+    foreach (Move move in GetPossibleMoves(color))
+    {
+        if ((move.PieceToMove.X, move.PieceToMove.Y) == from && move.To == to)
+        {
+            return new Move(piece, from, to, move.PieceToCapture);  // Adding the From parameter
+        }
+    }
+    return null;
+}
+
 
 	public static bool IsTowards(Move move, Piece piece)
 	{

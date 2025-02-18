@@ -92,97 +92,124 @@ Game ShowIntroScreenAndGetOption()
 // main game loop,run the game until there is a winner
 void RunGameLoop(Game game)
 {
-	while (game.Winner is null)
-	{
-		// Get the current player based on whose turn it is
-		Player currentPlayer = game.Players.First(player => player.Color == game.Turn);
-		
-		// handle human player's turn
-		if (currentPlayer.IsHuman)
-		{
-			while (game.Turn == currentPlayer.Color)
-			{
-				// Variables to track piece selection and movement
-				(int X, int Y)? selectionStart = null;
-				// If there's an aggressor piece (must move), use its position as starting point
-				(int X, int Y)? from = game.Board.Aggressor is not null ? (game.Board.Aggressor.X, game.Board.Aggressor.Y) : null;
-				// Get all possible moves for current player
-				List<Move> moves = game.Board.GetPossibleMoves(game.Turn);
-				
-				// If only one piece can move, automatically select it
-				if (moves.Select(move => move.PieceToMove).Distinct().Count() is 1)
-				{
-					Move must = moves.First();
-					from = (must.PieceToMove.X, must.PieceToMove.Y);
-					selectionStart = must.To;
-				}
+    while (game.Winner is null)
+    {
+        // Get the current player
+        Player currentPlayer = game.Players.First(player => player.Color == game.Turn);
 
-				// Keep asking for piece selection until valid piece is chosen
-				while (from is null)
-				{
-					from = HumanMoveSelection(game);
-					selectionStart = from;
-				}
+        // handle human player's turn
+        if (currentPlayer.IsHuman)
+        {
+            while (game.Turn == currentPlayer.Color)
+            {
+                ConsoleKey key = Console.ReadKey(true).Key;
 
-				// Get the destination square for the selected piec
-				(int X, int Y)? to = HumanMoveSelection(game, selectionStart: selectionStart, from: from);
-				Piece? piece = null;
-				piece = game.Board[from.Value.X, from.Value.Y];
+                // The player presses "U" to undo the move
+                if (key == ConsoleKey.U && game.UndoCounts[game.Turn] < 3)
+                {
+                    game.UndoMove();
+                    RenderGameState(game);
+                    continue; // Skip the current round and wait for input again
+                }
 
-				// Validate piece selection
-				if (piece is null || piece.Color != game.Turn)
-				{
-					from = null;
-					to = null;
-				}
+                // wait for the player to make a move
+                Move? move = GetPlayerMove(game);
+                if (move is not null)
+                {
+                    game.PerformMove(move);
+                    break;
+                }
+            }
+        }
+        else // handle computer player's turn
+        {
+            Move? move = GetComputerMove(game);
+            if (move is not null)
+            {
+                game.PerformMove(move);
+            }
+        }
 
-				// Handle move execution
-				if (from is not null && to is not null)
-				{
-					Move? move = game.Board.ValidateMove(game.Turn, from.Value, to.Value);
-					if (move is not null &&
-						(game.Board.Aggressor is null || move.PieceToMove == game.Board.Aggressor))
-					{
-						game.PerformMove(move);
-					}
-				}
-			}
-		}
+        // Check if the maximum number of steps has been reached
+        game.CheckForWinner();
 
-		// Handle computer player's turn
-		else
-		{
+        // Rendering the chessboard
+        RenderGameState(game);
 
-			// Get all possible moves and capturing moves
-			List<Move> moves = game.Board.GetPossibleMoves(game.Turn);
-			List<Move> captures = moves.Where(move => move.PieceToCapture is not null).ToList();
-			
-			// Prioritize capturing moves if available
-			if (captures.Count > 0)
-			{
-				game.PerformMove(captures[Random.Shared.Next(captures.Count)]);
-			}
+        // if there is a winner, exit the loop
+        if (game.Winner is not null)
+            break;
+    }
 
-			// If all pieces are kings, try to move towards closest rival
-			else if(!game.Board.Pieces.Any(piece => piece.Color == game.Turn && !piece.Promoted))
-			{
-				var (a, b) = game.Board.GetClosestRivalPieces(game.Turn);
-				Move? priorityMove = moves.FirstOrDefault(move => move.PieceToMove == a && Board.IsTowards(move, b));
-				game.PerformMove(priorityMove ?? moves[Random.Shared.Next(moves.Count)]);
-			}
-
-			// Make a random move if no special conditions
-			else
-			{
-				game.PerformMove(moves[Random.Shared.Next(moves.Count)]);
-			}
-		}
-
-		// Display the game state after move and wait for key press
-		RenderGameState(game, playerMoved: currentPlayer, promptPressKey: true);
-		Console.ReadKey(true);
-	}
+    Console.WriteLine($"{game.Winner} win!");
 }
+
+// Let the player select pieces and perform moves
+Move? GetPlayerMove(Game game)
+{
+    (int X, int Y)? selectionStart = null;
+    (int X, int Y)? from = game.Board.Aggressor is not null ? 
+        (game.Board.Aggressor.X, game.Board.Aggressor.Y) : null;
+
+    List<Move> moves = game.Board.GetPossibleMoves(game.Turn);
+
+    // if there is only one legal piece to move, automatically select it
+    if (moves.Select(move => move.PieceToMove).Distinct().Count() == 1)
+    {
+        Move mustMove = moves.First();
+        from = (mustMove.PieceToMove.X, mustMove.PieceToMove.Y);
+        selectionStart = mustMove.To;
+    }
+
+    // let the player select the piece
+    while (from is null)
+    {
+        from = HumanMoveSelection(game);
+        selectionStart = from;
+    }
+
+    // let the player select the destination
+    (int X, int Y)? to = HumanMoveSelection(game, selectionStart: selectionStart, from: from);
+    if (to is null)
+        return null; // if the player cancels the move, return null
+
+    Piece? piece = game.Board[from.Value.X, from.Value.Y];
+
+    // make sure the selected piece is the player's own piece
+    if (piece is null || piece.Color != game.Turn)
+    {
+        return null;
+    }
+
+    // check if the move is valid
+    return game.Board.ValidateMove(game.Turn, from.Value, to.Value);
+}
+
+// let the computer select a valid move
+Move? GetComputerMove(Game game)
+{
+    List<Move> moves = game.Board.GetPossibleMoves(game.Turn);
+    List<Move> captures = moves.Where(move => move.PieceToCapture is not null).ToList();
+
+    // If there is a capture action, it will be executed first
+    if (captures.Count > 0)
+    {
+        return captures[Random.Shared.Next(captures.Count)];
+    }
+
+    // If all pieces are kings, try to get closer to the opponent
+    if (!game.Board.Pieces.Any(piece => piece.Color == game.Turn && !piece.Promoted))
+    {
+        var (a, b) = game.Board.GetClosestRivalPieces(game.Turn);
+        Move? priorityMove = moves.FirstOrDefault(move => move.PieceToMove == a && Board.IsTowards(move, b));
+        return priorityMove ?? moves[Random.Shared.Next(moves.Count)];
+    }
+
+    // Default is to take a random step
+    return moves.Count > 0 ? moves[Random.Shared.Next(moves.Count)] : null;
+}
+
+
 
 // Method to render the current game state on the console
 // Parameters:
@@ -309,3 +336,18 @@ void RenderGameState(Game game, Player? playerMoved = null, (int X, int Y)? sele
 		}
 	}
 }
+
+
+/*
+I chose two modifications: 1. Player can undo a move (Maybe there are only 3 undos per game) 2. Make it so that the player has a move count (Stamina system).
+Because I think these two modifications are related to each other. After all, both undoing and counting moves need to record the player's operation history.
+So I first added variables to store the required data. I added the following three variables:
+public Dictionary<PieceColor, int> Steps = new() { { PieceColor.Black, 0 }, { PieceColor.White, 0 } }; used to record the number of steps of each player.
+public Dictionary<PieceColor, int> UndoCounts = new() { { PieceColor.Black, 0 }, { PieceColor.White, 0 } }; used to record the number of undoes.
+public Stack<Move> MoveHistory = new Stack<Move>(); used to record every step taken so as to undo.
+The above modifications are all made in the Game class.
+Next, because each move needs to store the steps in MoveHistory and increase the number of steps, I modified the PerformMove method to add the record of the number of steps and the number of regrets.
+Next, I implemented the regret function in the UndoMove method. When the player presses the U key, he can regret the move, but he can only regret 3 times per game. The specific operation method is: 1. Undo the last move in MoveHistory; 2. Reduce the number of steps; 3. Increase the number of regrets; 4. Retract the captured pieces (if any).
+In the fourth step, I modified the victory rules in CheckForWinner(). When the number of steps of one side reaches 20, the number of captured pieces is compared, and the side with more captured pieces wins. If the number of captured pieces is the same, the white piece wins. Because I think the white piece is the second move and has a certain disadvantage, it can also achieve the same number of captured pieces in this case, which means that the white piece is more powerful!
+In the fifth step, I modified the RunGameLoop() method and added the regret operation. When the player presses the U key, the UndoMove() method is called to implement the undo function. The PerformMove() method adds a check on the number of undo attempts. When the number of undo attempts reaches 3, the player cannot undo any more moves.
+*/
