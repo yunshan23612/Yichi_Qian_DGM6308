@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
-List<Card> deck = new List<Card>();// card pile
+List<Card> deck = new List<Card>();// Card pile
 List<Card> discardPile = new(); // Discard Pile
 Card playerHand = new(); // player hand
 Card dealerHand = new(); // computer hand
