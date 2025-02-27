@@ -1,206 +1,194 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
+using System.Globalization;
 
-Exception? exception = null;
+List<Card> deck = new List<Card>();// Card pile
+List<Card> discardPile = new(); // Discard Pile
+Card playerHand = new(); // player hand
+Card dealerHand = new(); // computer hand
+int playerScore = 0; // player score
+int dealerScore = 0; // computer score
 
 try
 {
-	const string wordsResource = "Wordle.FiveLetterWords.txt";
-	Assembly assembly = Assembly.GetExecutingAssembly();
-	List<string> words = new();
-	{
-		using Stream stream = assembly.GetManifestResourceStream(wordsResource)!;
-		if (stream is null)
-		{
-			Console.WriteLine("Error: Missing \"FiveLetterWords.txt\" embedded resource.");
-			Console.WriteLine("Press enter to continue...");
-			Console.ReadLine();
-			return;
-		}
-		using StreamReader streamReader = new(stream);
-		while (!streamReader.EndOfStream)
-		{
-			string line = streamReader.ReadLine()!;
-			words.Add(line);
-		}
-	}
+    // creat 52 cards 
+    foreach (Suit suit in Enum.GetValues<Suit>())
+    {
+        foreach (Value value in Enum.GetValues<Value>())
+        {
+            deck.Add(new()
+            {
+                Suit = suit,
+                Value = value,
+            });
+        }
+    }
 
-PlayAgain:
-	Console.ForegroundColor = ConsoleColor.White;
-	Console.BackgroundColor = ConsoleColor.Black;
-	Console.Clear();
-	Console.WriteLine("""
-		 Wordle
-		 ╔═══╦═══╦═══╦═══╦═══╗
-		 ║   ║   ║   ║   ║   ║
-		 ╠═══╬═══╬═══╬═══╬═══╣
-		 ║   ║   ║   ║   ║   ║
-		 ╠═══╬═══╬═══╬═══╬═══╣
-		 ║   ║   ║   ║   ║   ║
-		 ╠═══╬═══╬═══╬═══╬═══╣
-		 ║   ║   ║   ║   ║   ║
-		 ╠═══╬═══╬═══╬═══╬═══╣
-		 ║   ║   ║   ║   ║   ║
-		 ╠═══╬═══╬═══╬═══╬═══╣
-		 ║   ║   ║   ║   ║   ║
-		 ╚═══╩═══╩═══╩═══╩═══╝
-		 Controls:
-		 - a b, c, ... y, z: input letters
-		 - left/right arrow: move cursor
-		 - enter: submit or confirm
-		 - escape: exit
-		""");
-	int guess = 0;
-	int cursor = 0;
-	string word = words[Random.Shared.Next(words.Count)].ToUpperInvariant();
-	char[] letters = [' ', ' ', ' ', ' ', ' '];
-GetInput:
-	Console.SetCursorPosition(3 + cursor * 4, 2 + guess * 2);
-	ConsoleKey key = Console.ReadKey(true).Key;
-	switch (key)
-	{
-		case >= ConsoleKey.A and <= ConsoleKey.Z:
-			ClearMessageText();
-			Console.SetCursorPosition(3 + cursor * 4, 2 + guess * 2);
-			char c = (char)(key - ConsoleKey.A + 'A');
-			letters[cursor] = c;
-			Console.Write(c);
-			cursor = Math.Min(cursor + 1, 4);
-			goto GetInput;
-		case ConsoleKey.LeftArrow:
-			cursor = Math.Max(cursor - 1, 0);
-			goto GetInput;
-		case ConsoleKey.RightArrow:
-			cursor = Math.Min(cursor + 1, 4);
-			goto GetInput;
-		case ConsoleKey.Enter:
-			if (letters.Any(l => l < 'A' || l > 'Z') || !words.Contains(new string(letters).ToLowerInvariant()))
-			{
-				ClearMessageText();
-				Console.SetCursorPosition(0, 19);
-				Console.WriteLine(" You must input a valid word.");
-				goto GetInput;
-			}
-			bool correct = true;
-			for (int i = 0; i < 5; i++)
-			{
-				Console.SetCursorPosition(2 + i * 4, 2 + guess * 2);
-				if (word[i] == letters[i])
-				{
-					Console.BackgroundColor = ConsoleColor.DarkGreen;
-				}
-				else if (CheckForYellow(i, word, letters))
-				{
-					correct = false;
-					Console.BackgroundColor = ConsoleColor.DarkYellow;
-				}
-				else
-				{
-					correct = false;
-					Console.BackgroundColor = ConsoleColor.DarkGray;
-				}
-				Console.Write($" {letters[i]} ");
-				Console.BackgroundColor = ConsoleColor.Black;
-			}
-			if (correct)
-			{
-				ClearMessageText();
-				Console.SetCursorPosition(0, 19);
-				Console.WriteLine(" You win!");
-				if (PlayAgainCheck())
-				{
-					goto PlayAgain;
-				}
-				else
-				{
-					return;
-				}
-			}
-			else
-			{
-				letters = [' ', ' ', ' ', ' ', ' '];
-				guess++;
-				cursor = 0;
-			}
-			if (guess > 5)
-			{
-				ClearMessageText();
-				Console.SetCursorPosition(0, 19);
-				Console.WriteLine($" You lose! Word: {word}");
-				if (PlayAgainCheck())
-				{
-					goto PlayAgain;
-				}
-				else
-				{
-					return;
-				}
-			}
-			goto GetInput;
-		case ConsoleKey.Escape:
-			return;
-		case ConsoleKey.End or ConsoleKey.Home:
-			goto PlayAgain;
-		default:
-			goto GetInput;
-	}
-}
-catch (Exception e)
-{
-	exception = e;
-	throw;
+    Shuffle(deck); // shuffle
+
+    while (true) // the game main loop
+    {
+        if (deck.Count == 0) // if the card pile is empty
+        {
+            Console.Clear();
+            Console.WriteLine("the card pile is empty！\n1. shuffle and continue\n2. end the game");
+            Console.Write("please choose: ");
+            string choice = Console.ReadLine();
+
+            if (choice == "1") // shuffle and continue
+            {
+                deck = new List<Card>(discardPile);
+                discardPile.Clear();
+                Shuffle(deck);
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        start:
+        Console.Clear();
+        Console.WriteLine("press Enter to get a hand（Esc to escept）");
+        Console.WriteLine($"deck left: {deck.Count}");
+        Console.WriteLine($"current score - player: {playerScore}, computer: {dealerScore}");
+
+        switch (Console.ReadKey(true).Key)
+        {
+            case ConsoleKey.Enter:
+                playerHand = deck[^1]; // player draw a card
+                deck.RemoveAt(deck.Count - 1);
+                discardPile.Add(playerHand); // add the card to discard pile
+
+                dealerHand = deck[^1]; // computer draw a card
+                deck.RemoveAt(deck.Count - 1);
+                discardPile.Add(dealerHand); // add the card to discard pile
+                break;
+
+            case ConsoleKey.Escape:
+                return;
+
+            default:
+                Console.WriteLine("press Enter to continue");
+                goto start;
+        }
+
+        Console.Clear();
+        Console.WriteLine("you draw:");
+        DisplayCard(playerHand);
+        Console.WriteLine("\n the computer draw:");
+        DisplayCard(dealerHand);
+
+        // compare the value of the hand
+        if (playerHand.Value > dealerHand.Value)
+        {
+            Console.WriteLine("\n you win！");
+            playerScore++;
+        }
+        else if (playerHand.Value < dealerHand.Value)
+        {
+            Console.WriteLine("\n you lose！");
+            dealerScore++;
+        }
+        else
+        {
+            Console.WriteLine("\n draw！");
+        }
+
+        Console.WriteLine($"\n current score - player: {playerScore}, computer: {dealerScore}");
+        Console.WriteLine("\n press any key to continue...");
+        Console.ReadKey();
+    }
 }
 finally
 {
-	Console.ResetColor();
-	Console.Clear();
-	Console.WriteLine(exception?.ToString() ?? "Wordle was closed.");
+    Console.WriteLine("\n the game end！");
 }
 
-bool CheckForYellow(int index, string word, char[] letters)
+// show card
+void DisplayCard(Card card)
 {
-	int letterCount = 0;
-	int incorrectCountBeforeIndex = 0;
-	int correctCount = 0;
-	for (int i = 0; i < word.Length; i++)
-	{
-		if (word[i] == letters[index])
-		{
-			letterCount++;
-		}
-		if (letters[i] == letters[index] && word[i] == letters[index])
-		{
-			correctCount++;
-		}
-		if (i < index && letters[i] == letters[index] && word[i] != letters[index])
-		{
-			incorrectCountBeforeIndex++;
-		}
-	}
-	return letterCount - correctCount - incorrectCountBeforeIndex > 0;
+    foreach (var line in card.Render())
+    {
+        Console.WriteLine(line);
+    }
 }
 
-bool PlayAgainCheck()
+// shuffle
+void Shuffle(List<Card> cards)
 {
-	Console.WriteLine($" Play again [enter] or quit [escape]?");
-GetPlayAgainInput:
-	switch (Console.ReadKey(true).Key)
-	{
-		case ConsoleKey.Enter:
-			return true;
-		case ConsoleKey.Escape:
-			return false;
-		default:
-			goto GetPlayAgainInput;
-	}
+    Random rnd = new Random();
+    for (int i = 0; i < cards.Count; i++)
+    {
+        int swap = rnd.Next(cards.Count);
+        (cards[i], cards[swap]) = (cards[swap], cards[i]);
+    }
 }
 
-void ClearMessageText()
+// class card
+class Card
 {
-	Console.SetCursorPosition(0, 19);
-	Console.WriteLine("                                      ");
-	Console.WriteLine("                                      ");
+    public Suit Suit;
+    public Value Value;
+
+    public string[] Render()
+    {
+        char suit = Suit switch
+        {
+            Suit.Hearts => '♥',
+            Suit.Clubs => '♣',
+            Suit.Spades => '♠',
+            Suit.Diamonds => '♦',
+            _ => ' '
+        };
+
+        string value = Value switch
+        {
+            Value.Ace => "A ",
+            Value.Ten => "10",
+            Value.Jack => "J ",
+            Value.Queen => "Q ",
+            Value.King => "K ",
+            _ => ((int)Value).ToString(CultureInfo.InvariantCulture) + " "
+        };
+
+        return new string[]
+        {
+           	$"┌───────┐",
+			$"│{value}│",
+			$"│       │",
+			$"│       │",
+			$"│       │",
+			$"│ {suit}│",
+			$"└───────┘",
+        };
+    }
 }
+
+// Enumeration - Suit
+enum Suit
+{
+    Hearts,
+    Clubs,
+    Spades,
+    Diamonds,
+}
+
+// Enumeration - value
+enum Value
+{
+    Ace = 14,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
+    Eight = 8,
+    Nine = 9,
+    Ten = 10,
+    Jack = 11,
+    Queen = 12,
+    King = 13,
+}
+
