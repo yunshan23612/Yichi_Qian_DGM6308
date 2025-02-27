@@ -89,15 +89,13 @@ Game ShowIntroScreenAndGetOption()
 	return new Game(humanPlayerCount.Value);
 }
 
-// main game loop,run the game until there is a winner
+// main game loop,run the game until there is a winner  
 void RunGameLoop(Game game)
 {
     while (game.Winner is null)
     {
-        // Get the current player
         Player currentPlayer = game.Players.First(player => player.Color == game.Turn);
 
-        // handle human player's turn
         if (currentPlayer.IsHuman)
         {
             while (game.Turn == currentPlayer.Color)
@@ -109,10 +107,17 @@ void RunGameLoop(Game game)
                 {
                     game.UndoMove();
                     RenderGameState(game);
-                    continue; // Skip the current round and wait for input again
+                    continue;
                 }
 
-                // wait for the player to make a move
+                // The player presses "E" to use an extra turn
+                if (key == ConsoleKey.E && game.ExtraTurns[game.Turn] > 0)
+                {
+                    game.ExtraTurns[game.Turn]--;
+                    Console.WriteLine($"{game.Turn} use an extra turn!");
+                    continue;
+                }
+
                 Move? move = GetPlayerMove(game);
                 if (move is not null)
                 {
@@ -121,7 +126,7 @@ void RunGameLoop(Game game)
                 }
             }
         }
-        else // handle computer player's turn
+        else // Computer Round
         {
             Move? move = GetComputerMove(game);
             if (move is not null)
@@ -130,18 +135,14 @@ void RunGameLoop(Game game)
             }
         }
 
-        // Check if the maximum number of steps has been reached
         game.CheckForWinner();
-
-        // Rendering the chessboard
         RenderGameState(game);
 
-        // if there is a winner, exit the loop
         if (game.Winner is not null)
             break;
     }
 
-    Console.WriteLine($"{game.Winner} win!");
+    Console.WriteLine($"🏆 {game.Winner} win!");
 }
 
 // Let the player select pieces and perform moves
