@@ -1,4 +1,4 @@
-﻿namespace Checkers;
+namespace Checkers;
 
 public class Board
 {
@@ -106,42 +106,46 @@ public class Board
 			: moves;
 	}
 
-	public List<Move> GetPossibleMoves(Piece piece)
-	{
-		List<Move> moves = new();
-		ValidateDiagonalMove(-1, -1);
-		ValidateDiagonalMove(-1,  1);
-		ValidateDiagonalMove( 1, -1);
-		ValidateDiagonalMove( 1,  1);
-		return moves.Any(move => move.PieceToCapture is not null)
-			? moves.Where(move => move.PieceToCapture is not null).ToList()
-			: moves;
+public List<Move> GetPossibleMoves(Piece piece) //Modified movement logic, can move in eight directions
+{
+    List<Move> moves = new();
 
-		void ValidateDiagonalMove(int dx, int dy)
-		{
-    		if (!piece.Promoted && piece.Color is Black && dy is -1) return;
-    		if (!piece.Promoted && piece.Color is White && dy is 1) return;
-    		(int X, int Y) target = (piece.X + dx, piece.Y + dy);
-    		if (!IsValidPosition(target.X, target.Y)) return;
-    		PieceColor? targetColor = this[target.X, target.Y]?.Color;
-    		if (targetColor is null)
-    		{
-        		if (!IsValidPosition(target.X, target.Y)) return;
-        		Move newMove = new(piece, (piece.X, piece.Y), target);  // Adding the From parameter
-        		moves.Add(newMove);
-    		}
-    		else if (targetColor != piece.Color)
-    		{
-        		(int X, int Y) jump = (piece.X + 2 * dx, piece.Y + 2 * dy);
-        		if (!IsValidPosition(jump.X, jump.Y)) return;
-        		PieceColor? jumpColor = this[jump.X, jump.Y]?.Color;
-        		if (jumpColor is not null) return;
-        		Move attack = new(piece, (piece.X, piece.Y), jump, this[target.X, target.Y]);  // Adding the From parameter
-        		moves.Add(attack);
-    		}
-		}		
+    // 8 directions
+    int[] directionsX = { -1, 0, 1, -1, 1, -1, 0, 1 };
+    int[] directionsY = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
-	}
+    for (int i = 0; i < 8; i++)
+    {
+        ValidateMoveInAllDirections(directionsX[i], directionsY[i]);
+    }
+
+    return moves.Any(move => move.PieceToCapture is not null)
+        ? moves.Where(move => move.PieceToCapture is not null).ToList()
+        : moves;
+
+    void ValidateMoveInAllDirections(int dx, int dy)
+    {
+        (int X, int Y) target = (piece.X + dx, piece.Y + dy);
+        if (!IsValidPosition(target.X, target.Y)) return;
+
+        PieceColor? targetColor = this[target.X, target.Y]?.Color;
+        if (targetColor is null)
+        {
+            Move newMove = new(piece, (piece.X, piece.Y), target);
+            moves.Add(newMove);
+        }
+        else if (targetColor != piece.Color)
+        {
+            (int X, int Y) jump = (piece.X + 2 * dx, piece.Y + 2 * dy);
+            if (!IsValidPosition(jump.X, jump.Y)) return;
+            PieceColor? jumpColor = this[jump.X, jump.Y]?.Color;
+            if (jumpColor is not null) return;
+            Move attack = new(piece, (piece.X, piece.Y), jump, this[target.X, target.Y]);
+            moves.Add(attack);
+        }
+    }
+}
+
 
 	/// <summary>Returns a <see cref="Move"/> if <paramref name="from"/>-&gt;<paramref name="to"/> is valid or null if not.</summary>
 	public Move? ValidateMove(PieceColor color, (int X, int Y) from, (int X, int Y) to)
@@ -171,3 +175,4 @@ public class Board
 		return b_distanceSquared < a_distanceSquared;
 	}
 }
+
