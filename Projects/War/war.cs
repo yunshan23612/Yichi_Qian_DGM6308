@@ -79,7 +79,7 @@ try
         Console.WriteLine("\n the computer draw:");
         DisplayCard(dealerHand);
 
-        // 比较牌面大小
+        // compare the value of the hand
         if (playerHand.Value > dealerHand.Value)
         {
             Console.WriteLine("\n you win！");
