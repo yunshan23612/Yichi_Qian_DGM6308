@@ -1,4 +1,4 @@
-﻿﻿namespace Checkers;
+namespace Checkers;
 
 public class Game
 {
@@ -13,6 +13,9 @@ public class Game
     public Board Board { get; }
     public PieceColor? Winner { get; private set; }
     public List<Player> Players { get; }
+
+    public Dictionary<PieceColor, int> ExtraTurns = new() { { PieceColor.Black, 1 }, { PieceColor.White, 1 } }; // Add this field to keep track of extra turns
+
 
     public Game(int humanPlayerCount)
     {
@@ -97,4 +100,6 @@ public class Game
     public int TakenCount(PieceColor colour) =>
         PiecesPerColor - Board.Pieces.Count(piece => piece.Color == colour);
 }
+
+
 
